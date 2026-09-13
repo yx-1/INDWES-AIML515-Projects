@@ -1,0 +1,44 @@
+{
+  "entities": {
+    "SearchRecord": {
+      "title": "SearchRecord",
+      "description": "User permit search history record with question, jurisdiction, category, and generated answer",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "jurisdiction": { "type": "string" },
+        "category": { "type": "string" },
+        "question": { "type": "string" },
+        "answer": { "type": "object" }
+      },
+      "required": ["id", "userId", "timestamp", "jurisdiction", "category", "question", "answer"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "User feedback on permit answer accuracy and usefulness",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "searchId": { "type": "string" },
+        "rating": { "type": "string", "enum": ["helpful", "not_helpful"] },
+        "timestamp": { "type": "number" }
+      },
+      "required": ["id", "userId", "searchId", "rating", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/searches/{searchId}": {
+      "schema": "SearchRecord",
+      "description": "Stores user permit searches isolated to the authenticated user"
+    },
+    "/feedback/{feedbackId}": {
+      "schema": "Feedback",
+      "description": "Stores user feedback on permit answers"
+    }
+  }
+}

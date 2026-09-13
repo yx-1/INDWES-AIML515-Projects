@@ -1,0 +1,24 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Isolated user searches collection
+    match /users/{userId}/searches/{searchId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Feedback collection - allows users to submit feedback ratings
+    match /feedback/{feedbackId} {
+      allow create: if request.resource.data.userId is string 
+                    && request.resource.data.searchId is string
+                    && (request.resource.data.rating == 'helpful' || request.resource.data.rating == 'not_helpful')
+                    && request.resource.data.timestamp is number;
+      allow read: if request.auth != null;
+    }
+
+    // Connection check endpoint
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}
