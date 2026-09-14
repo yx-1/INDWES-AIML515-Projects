@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media print {
+  header,
+  aside,
+  form,
+  #google-auth-modal {
+    display: none !important;
+  }
+}

@@ -889,8 +889,9 @@ function renderIndexHtml(distDir: string, res: express.Response) {
 
 async function start() {
   const distDir = resolveDistDirectory();
-  const hasBuiltDist = fs.existsSync(path.join(distDir, "index.html"));
-  const isDevMode = process.env.NODE_ENV === "development" && !hasBuiltDist;
+  const hasBuiltDist = fs.existsSync(path.join(process.cwd(), "dist", "index.html"));
+  // Source index.html lives at the project root, so do not treat it as a production build.
+  const isDevMode = process.env.NODE_ENV === "development";
 
   console.log(`[Startup] Environment: ${process.env.NODE_ENV || "production"}`);
   console.log(`[Startup] Static directory: ${distDir} (built assets present: ${hasBuiltDist})`);

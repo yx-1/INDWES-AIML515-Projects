@@ -1,7 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { JurisdictionKey, PermitCategoryKey } from '../types';
-import { SAMPLE_QUESTIONS, JURISDICTIONS, CATEGORIES } from '../data/permitConstants';
-import { Sparkles, ArrowRight } from 'lucide-react';
+import { SAMPLE_QUESTIONS, JURISDICTIONS } from '../data/permitConstants';
+import { ArrowRight } from 'lucide-react';
+import { QUESTION_MAX_LENGTH, validatePermitSearch } from '../lib/validation';
+import { loadLastQuery, saveLastQuery } from '../lib/storage';
+import { LoadingSpinner } from './common/LoadingSpinner';
 
 interface SearchConsoleProps {
   jurisdiction: JurisdictionKey;
@@ -16,42 +19,71 @@ export const SearchConsole: React.FC<SearchConsoleProps> = ({
   onSearch,
   isLoading
 }) => {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(loadLastQuery);
+  const [fieldError, setFieldError] = useState<string | null>(null);
 
   const currentJur = JURISDICTIONS.find((j) => j.key === jurisdiction);
-  const currentCat = CATEGORIES.find((c) => c.key === category);
   const sampleList = SAMPLE_QUESTIONS[jurisdiction]?.[category] || [];
+
+  useEffect(() => {
+    saveLastQuery(query);
+  }, [query]);
+
+  const submitQuestion = (value: string) => {
+    const nextError = validatePermitSearch({
+      jurisdiction,
+      category,
+      question: value
+    });
+    if (nextError) {
+      setFieldError(nextError);
+      return;
+    }
+    setFieldError(null);
+    onSearch(value.trim());
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!query.trim() || isLoading) return;
-    onSearch(query.trim());
+    if (isLoading) return;
+    submitQuestion(query);
   };
 
   const handleChipClick = (sample: string) => {
+    if (isLoading) return;
     setQuery(sample);
-    onSearch(sample);
+    submitQuestion(sample);
   };
 
   return (
     <div className="space-y-3">
-      {/* Geometric Search Bar */}
-      <form onSubmit={handleSubmit} className="relative">
+      <form onSubmit={handleSubmit} className="relative flex flex-col gap-2 sm:block">
+        <label htmlFor="permit-question-input" className="sr-only">
+          Permit question
+        </label>
         <input
           id="permit-question-input"
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          maxLength={QUESTION_MAX_LENGTH}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            if (fieldError) setFieldError(null);
+          }}
+          aria-invalid={fieldError ? true : undefined}
+          aria-describedby={fieldError ? 'permit-question-error' : 'permit-question-hint'}
           placeholder={`Ask a permit question (e.g., "What are the railing requirements for a 3ft deck in ${currentJur?.name}?")`}
-          className="w-full h-14 pl-12 pr-32 sm:pr-40 rounded-xl border border-slate-200 bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-slate-700 text-sm placeholder:text-slate-400 transition"
+          className={`w-full h-14 pl-12 pr-4 sm:pr-40 rounded-xl border bg-white shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-slate-700 text-sm placeholder:text-slate-400 transition ${
+            fieldError ? 'border-red-300' : 'border-slate-200'
+          }`}
         />
 
-        {/* Geometric Search Icon */}
         <svg
           className="absolute left-4 top-4 w-6 h-6 text-slate-400 pointer-events-none"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
+          aria-hidden="true"
         >
           <path
             strokeLinecap="round"
@@ -61,21 +93,18 @@ export const SearchConsole: React.FC<SearchConsoleProps> = ({
           />
         </svg>
 
-        {/* Action button inside bar */}
-        <div className="absolute right-2 top-2 bottom-2 flex items-center">
+        <div className="sm:absolute sm:right-2 sm:top-2 sm:bottom-2 flex items-center">
           <button
             id="submit-permit-question-btn"
             type="submit"
             disabled={isLoading || !query.trim()}
-            className="h-10 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center gap-2 transition cursor-pointer shadow-xs whitespace-nowrap"
+            className="w-full sm:w-auto h-11 sm:h-10 px-4 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 disabled:cursor-not-allowed text-white text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer shadow-xs whitespace-nowrap"
           >
             {isLoading ? (
               <>
-                <svg className="animate-spin h-3.5 w-3.5 text-white shrink-0" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                </svg>
-                <span>Searching permit sources...</span>
+                <LoadingSpinner />
+                <span className="sm:hidden">Searching…</span>
+                <span className="hidden sm:inline">Searching permit sources...</span>
               </>
             ) : (
               <>
@@ -87,7 +116,18 @@ export const SearchConsole: React.FC<SearchConsoleProps> = ({
         </div>
       </form>
 
-      {/* Suggested Contractor Queries */}
+      <div className="flex items-center justify-between gap-3">
+        <p id="permit-question-hint" className="text-[11px] text-slate-400">
+          {query.trim().length}/{QUESTION_MAX_LENGTH} characters · at least 5 required
+        </p>
+      </div>
+
+      {fieldError && (
+        <p id="permit-question-error" className="text-xs text-red-700" role="alert">
+          {fieldError}
+        </p>
+      )}
+
       <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider shrink-0">
           Suggested:
@@ -96,8 +136,9 @@ export const SearchConsole: React.FC<SearchConsoleProps> = ({
           <button
             key={idx}
             type="button"
+            disabled={isLoading}
             onClick={() => handleChipClick(sample)}
-            className="shrink-0 text-left text-xs bg-white text-slate-700 hover:bg-slate-50 hover:text-blue-600 border border-slate-200 rounded-lg px-3 py-1.5 transition cursor-pointer shadow-2xs"
+            className="shrink-0 text-left text-xs bg-white text-slate-700 hover:bg-slate-50 hover:text-blue-600 border border-slate-200 rounded-lg px-3 py-1.5 transition cursor-pointer shadow-2xs disabled:opacity-50 disabled:cursor-not-allowed max-w-[280px] sm:max-w-none truncate sm:whitespace-normal"
           >
             {sample}
           </button>
